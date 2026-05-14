@@ -53,7 +53,13 @@ def generate_nonlinear_data(n_samples=100, noise=0.1, random_state=42):
     y shape must be:
         (n_samples,)
     """
-    pass
+
+    np.random.seed(random_state)
+    X = np.random.rand(n_samples, 1)
+    Y = np.sin(2 * np.pi * X).ravel() + np.random.normal(0, noise, n_samples)
+
+    
+    return X , Y
 
 
 def create_polynomial_model(degree):
@@ -70,7 +76,8 @@ def create_polynomial_model(degree):
     Returns:
         sklearn Pipeline object
     """
-    pass
+    pipeline = Pipeline([("polynomial_features", PolynomialFeatures(degree=degree, include_bias=False)), ("linear_regression", LinearRegression())])
+    return pipeline
 
 
 def evaluate_polynomial_degrees(X, y, degrees, test_size=0.3, random_state=0):
@@ -101,7 +108,24 @@ def evaluate_polynomial_degrees(X, y, degrees, test_size=0.3, random_state=0):
             4. Predict on dev set and compute dev MSE.
         - Select best_degree using the lowest dev error.
     """
-    pass
+    X_train , X_test , Y_train , Y_test = train_test_split(X, y , test_size = test_size , random_state = random_state)
+    train_errors = []
+    dev_errors = []
+    results = {}
+    for degree in degrees :
+        model = create_polynomial_model(degree)
+        model.fit(X_train , Y_train)
+        train_error = mean_squared_error(Y_train , model.predict(X_train))
+        dev_error = mean_squared_error(Y_test , model.predict(X_test))
+        train_errors.append(train_error)
+        dev_errors.append(dev_error)
+    best_degree = degrees[np.argmin(dev_errors)]
+
+    results["degrees"] = degrees
+    results["train_errors"] = train_errors
+    results["dev_errors"] = dev_errors
+    results["best_degree"] = best_degree
+    return results
 
 
 def diagnose_from_errors(train_error, dev_error, high_error_threshold=0.15, gap_threshold=0.05):
@@ -135,7 +159,21 @@ def diagnose_from_errors(train_error, dev_error, high_error_threshold=0.15, gap_
         Otherwise:
             "good_fit"
     """
-    pass
+    gap = dev_error - train_error
+    if train_error > high_error_threshold and gap <= gap_threshold:
+        diagnosis = "high_bias"
+    elif train_error <= high_error_threshold and gap > gap_threshold:
+        diagnosis = "high_variance"
+    elif train_error > high_error_threshold and gap > gap_threshold:
+        diagnosis = "high_bias_and_high_variance"
+    else:
+        diagnosis = "good_fit"
+    return {
+        "train_error": train_error,
+        "dev_error": dev_error,
+        "generalization_gap": gap,
+        "diagnosis": diagnosis
+    }
 
 
 # ============================================================
@@ -165,8 +203,27 @@ def regularization_comparison(X_train, y_train, X_dev, y_dev, alphas):
         - Train Ridge(alpha=alpha) for each alpha.
         - Compute train and dev MSE.
         - Select best_alpha using the lowest dev error.
+
+
     """
-    pass
+    train_errors = []
+    dev_errors = []
+
+    for alpha in alphas :
+        model = Ridge(alpha = alpha)
+        model.fit(X_train , y_train)
+        train_error = mean_squared_error(y_train , model.predict(X_train))
+        dev_error = mean_squared_error(y_dev , model.predict(X_dev))
+        train_errors.append(train_error)
+        dev_errors.append(dev_error)
+    best_alpha = alphas[np.argmin(dev_errors)]
+    
+    results = {}
+    results["alphas"] = alphas
+    results["train_errors"] = train_errors
+    results["dev_errors"] = dev_errors
+    results["best_alpha"] = best_alpha
+    return results
 
 
 def recommend_action(diagnosis):
@@ -189,7 +246,16 @@ def recommend_action(diagnosis):
         anything else ->
             "unknown_diagnosis"
     """
-    pass
+    if diagnosis == "high_bias":
+        return "increase_model_complexity"
+    elif diagnosis == "high_variance":
+        return "add_regularization_or_more_data"
+    elif diagnosis == "high_bias_and_high_variance":
+        return "increase_complexity_then_regularize"
+    elif diagnosis == "good_fit":
+        return "keep_model_or_minor_tuning"
+    else:
+        return "unknown_diagnosis"
 
 
 if __name__ == "__main__":
